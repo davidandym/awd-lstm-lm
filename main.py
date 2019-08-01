@@ -12,7 +12,11 @@ from utils import batchify, get_batch, repackage_hidden
 
 parser = argparse.ArgumentParser(description='PyTorch PennTreeBank RNN/LSTM Language Model')
 parser.add_argument('--data', type=str, default='data/penn/',
-                    help='location of the data corpus')
+                    help='location of the raw data')
+parser.add_argument('--output-dir', type=str, default='data/penn/',
+                    help='location of serialized data and model')
+parser.add_argument('--bytes', default=False, action='store_true',
+                    help='location of serialized data and model')
 parser.add_argument('--model', type=str, default='LSTM',
                     help='type of recurrent net (LSTM, QRNN, GRU)')
 parser.add_argument('--emsize', type=int, default=400,
@@ -91,18 +95,19 @@ def model_load(fn):
 
 import os
 import hashlib
-fn = 'corpus.{}.data'.format(hashlib.md5(args.data.encode()).hexdigest())
+fn = 'corpus.data'
+fn = os.path.join(args.output_dir, fn)
 if os.path.exists(fn):
     print('Loading cached dataset...')
     corpus = torch.load(fn)
 else:
     print('Producing dataset...')
-    corpus = data.Corpus(args.data)
+    corpus = data.Corpus(args.data, shard_dir=args.output_dir, byte_voc=args.bytes)
     torch.save(corpus, fn)
 
 eval_batch_size = 10
 test_batch_size = 1
-train_data = batchify(corpus.train, args.batch_size, args)
+# train_data = batchify(corpus.train, args.batch_size, args)
 val_data = batchify(corpus.valid, eval_batch_size, args)
 test_data = batchify(corpus.test, test_batch_size, args)
 

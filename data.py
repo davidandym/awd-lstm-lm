@@ -23,34 +23,66 @@ class Dictionary(object):
     def __len__(self):
         return len(self.idx2word)
 
+class Shard(object):
+    def __init__(self, ids):
+        self.shard = torch.tensor(ids, dtype=torch.long)
 
 class Corpus(object):
-    def __init__(self, path):
+    def __init__(self, path, shard_dir=None, byte_voc=False):
         self.dictionary = Dictionary()
-        self.train = self.tokenize(os.path.join(path, 'train.txt'))
-        self.valid = self.tokenize(os.path.join(path, 'valid.txt'))
-        self.test = self.tokenize(os.path.join(path, 'test.txt'))
+        # self.train = self.tokenize(os.path.join(path, 'train.txt'))
+        self.tokenize(os.path.join(path, 'train.txt'), save=False, byte_voc=byte_voc)
+        self.valid = self.tokenize(os.path.join(path, 'valid.txt'), byte_voc=byte_voc)
+        self.test = self.tokenize(os.path.join(path, 'test.txt'), byte_voc=byte_voc)
 
-    def tokenize(self, path):
+        shard_count = 0
+        self.train_shards = []
+
+        for shard in self.shard_train(os.path.join(path, 'train.txt')):
+            f = 'corpus.train-{}.data'.format(shard_count)
+            fn = op.path.join(out_path, f)
+            self.train_shards.append(fn)
+            torch.save(Shard(shard), fn)
+            shard_count += 1
+
+    def shard_train(self, path, avg_shard_size=1000000000):
+        """ Shard a large training file into multiple small datasets. """
+        with open(path, 'r') as f:
+            shard_encoded = []
+            for line in f:
+                toks = line.strip().split()
+                ids = [self.dictionary.word2idx[tok] for tok in toks]
+                shard_encoded += ids
+                if len(shard_encoded) >= avg_shard_size:
+                    yield shard_encoded
+                    shard_encoded = []
+            yield shard_encoded
+
+    def tokenize(self, path, byte_voc=False, save=True):
         """Tokenizes a text file."""
         assert os.path.exists(path)
         # Add words to the dictionary
-        with open(path, 'r') as f:
-            tokens = 0
-            for line in f:
-                words = line.split() + ['<eos>']
-                tokens += len(words)
-                for word in words:
-                    self.dictionary.add_word(word)
+        if byte_voc:
+            for i in range(256):
+                self.dictionary.add_word(str(i))
+        else:
+            with open(path, 'r') as f:
+                tokens = 0
+                for line in f:
+                    words = line.split()
+                    tokens += len(words)
+                    for word in words:
+                        self.dictionary.add_word(word)
 
         # Tokenize file content
-        with open(path, 'r') as f:
-            ids = torch.LongTensor(tokens)
-            token = 0
-            for line in f:
-                words = line.split() + ['<eos>']
-                for word in words:
-                    ids[token] = self.dictionary.word2idx[word]
-                    token += 1
+        if save:
+            with open(path, 'r') as f:
+                ids = torch.LongTensor(tokens)
+                token = 0
+                for line in f:
+                    words = line.split()
+                    for word in words:
+                        ids[token] = self.dictionary.word2idx[word]
+                        token += 1
 
-        return ids
+            return ids

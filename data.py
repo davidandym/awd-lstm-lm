@@ -40,7 +40,8 @@ class Corpus(object):
 
         for shard in self.shard_train(os.path.join(path, 'train.txt')):
             f = 'corpus.train-{}.data'.format(shard_count)
-            fn = op.path.join(out_path, f)
+            fn = os.path.join(shard_dir, f)
+            print('saved shard {}'.format(fn))
             self.train_shards.append(fn)
             torch.save(Shard(shard), fn)
             shard_count += 1
@@ -65,14 +66,22 @@ class Corpus(object):
         if byte_voc:
             for i in range(256):
                 self.dictionary.add_word(str(i))
-        else:
+
+        if not byte_voc:
             with open(path, 'r') as f:
                 tokens = 0
                 for line in f:
-                    words = line.split()
+                    words = line.strip().split()
                     tokens += len(words)
                     for word in words:
                         self.dictionary.add_word(word)
+        elif save:
+            with open(path, 'r') as f:
+                tokens = 0
+                for line in f:
+                    words = line.strip().split()
+                    tokens += len(words)
+
 
         # Tokenize file content
         if save:

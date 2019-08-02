@@ -1,4 +1,5 @@
 import os
+import random
 import torch
 
 from collections import Counter
@@ -23,10 +24,6 @@ class Dictionary(object):
     def __len__(self):
         return len(self.idx2word)
 
-class Shard(object):
-    def __init__(self, ids):
-        self.shard = torch.tensor(ids, dtype=torch.long)
-
 class Corpus(object):
     def __init__(self, path, shard_dir=None, byte_voc=False):
         self.dictionary = Dictionary()
@@ -43,7 +40,7 @@ class Corpus(object):
             fn = os.path.join(shard_dir, f)
             print('saved shard {}'.format(fn))
             self.train_shards.append(fn)
-            torch.save(Shard(shard), fn)
+            torch.save(shard, fn)
             shard_count += 1
 
     def shard_train(self, path, avg_shard_size=1000000000):
@@ -58,6 +55,12 @@ class Corpus(object):
                     yield shard_encoded
                     shard_encoded = []
             yield shard_encoded
+
+    def iterate_train_shards(self):
+        shuffled = random.sample(self.train_shards, k=len(self.train_shards))           
+        for shard in shuffled:
+            shard_obj = 
+            yield torch.load(shard)
 
     def tokenize(self, path, byte_voc=False, save=True):
         """Tokenizes a text file."""

@@ -24,6 +24,10 @@ class Dictionary(object):
     def __len__(self):
         return len(self.idx2word)
 
+class Shard(object):
+    def __init__(self, ids):
+        self.shard = torch.tensor(ids, dtype=torch.long)
+
 class Corpus(object):
     def __init__(self, path, shard_dir=None, byte_voc=False):
         self.dictionary = Dictionary()
@@ -59,8 +63,8 @@ class Corpus(object):
     def iterate_train_shards(self):
         shuffled = random.sample(self.train_shards, k=len(self.train_shards))           
         for shard in shuffled:
-            shard_obj = 
-            yield torch.load(shard)
+            s = torch.load(shard)
+            yield s.shard
 
     def tokenize(self, path, byte_voc=False, save=True):
         """Tokenizes a text file."""

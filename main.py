@@ -149,6 +149,11 @@ if args.cuda:
     model = model.cuda()
     criterion = criterion.cuda()
 ###
+
+print("model loading")
+print(torch.cuda.memory_allocated())
+print(torch.cuda.max_memory_allocated())
+
 params = list(model.parameters()) + list(criterion.parameters())
 total_params = sum(x.size()[0] * x.size()[1] if len(x.size()) > 1 else x.size()[0] for x in params if x.size())
 print('Args:', args)
@@ -183,6 +188,9 @@ def train():
     batch = 0
     for tr_data_shard in corpus.iterate_train_shards():
         train_data = batchify(tr_data_shard, args.batch_size, args)
+        print("data loading")
+        print(torch.cuda.memory_allocated())
+        print(torch.cuda.max_memory_allocated())
         i = 0
         while i < train_data.size(0) - 1 - 1:
             bptt = args.bptt if np.random.random() < 0.95 else args.bptt / 2.

@@ -44,7 +44,7 @@ class Corpus(object):
             fn = os.path.join(shard_dir, f)
             print('saved shard {}'.format(fn))
             self.train_shards.append(fn)
-            torch.save(shard, fn)
+            torch.save(Shard(shard), fn)
             shard_count += 1
 
     def shard_train(self, path, avg_shard_size=1000000000):

@@ -234,9 +234,9 @@ def train():
                     elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss), cur_loss / math.log(2)))
                 total_loss = 0
                 start_time = time.time()
-        ###
-        batch += 1
-        i += seq_len
+            ###
+            batch += 1
+            i += seq_len
 
 # Loop over epochs.
 lr = args.lr

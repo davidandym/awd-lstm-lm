@@ -51,7 +51,7 @@ model = model.RNNModel(args.model, ntokens, args.emsize,
                        args.nhid, args.nlayers, tie_weights=True)
 if args.resume is not None:
     print(f'Loading model from {args.resume}')
-    model_load(args.model)
+    model_load(args.resume)
 if args.cuda:
     model = model.cuda()
 model.eval()
@@ -67,7 +67,7 @@ for sent in load_sentences(args.sentences_file, corpus):
     model_outs = model(data, hidden, return_h=True)
     result, hidden, raw_outputs, outputs = model_outs
     sent_outputs = raw_outputs[args.nlayers - 1]
-    sent_outputs = sent_outputs.squeeze().detach().numpy()
+    sent_outputs = sent_outputs.cpu().squeeze().detach().numpy()
     all_vectors.append(sent_outputs)
 
 print(f"Extracted features for {len(all_vectors)} sentences.")

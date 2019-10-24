@@ -32,8 +32,11 @@ class Corpus(object):
     def __init__(self, path, shard_dir=None, byte_voc=False):
         self.dictionary = Dictionary()
         # self.train = self.tokenize(os.path.join(path, 'train.txt'))
+        print("Tokenizing train data")
         self.tokenize(os.path.join(path, 'train.txt'), save=False, byte_voc=byte_voc)
+        print("Tokenizing dev data")
         self.valid = self.tokenize(os.path.join(path, 'valid.txt'), byte_voc=byte_voc)
+        print("Tokenizing test data")
         self.test = self.tokenize(os.path.join(path, 'test.txt'), byte_voc=byte_voc)
 
         shard_count = 0
@@ -70,10 +73,12 @@ class Corpus(object):
         """Tokenizes a text file."""
         assert os.path.exists(path)
         # Add words to the dictionary
+        # If we have a byte vocab, just add all the bytes now
         if byte_voc:
             for i in range(256):
                 self.dictionary.add_word(str(i))
 
+        # If it's not a byte-vocab, add all the words in the file
         if not byte_voc:
             with open(path, 'r') as f:
                 tokens = 0
@@ -82,6 +87,8 @@ class Corpus(object):
                     tokens += len(words)
                     for word in words:
                         self.dictionary.add_word(word)
+        # If it is a byte vocab, and we want to save it, then save all the
+        # tokens here
         elif save:
             with open(path, 'r') as f:
                 tokens = 0
@@ -90,7 +97,9 @@ class Corpus(object):
                     tokens += len(words)
 
 
-        # Tokenize file content
+        # If we were saving it, now index the tokens and return the indexes
+        # this seems kinda stupid, but idk... maybe it has to do with the torch
+        # long tensor or something.
         if save:
             with open(path, 'r') as f:
                 ids = torch.LongTensor(tokens)

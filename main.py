@@ -4,6 +4,7 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.utils.tensorboard import SummaryWriter
 
 import data
 import model
@@ -76,7 +77,7 @@ np.random.seed(args.seed)
 torch.manual_seed(args.seed)
 if torch.cuda.is_available():
     if not args.cuda:
-        print("WARNING: You have a CUDA device, so you should probably run with --cuda")
+        print("WARNING: You have a CUDA device, so you should probably disable --cuda")
     else:
         torch.cuda.manual_seed(args.seed)
 
@@ -150,14 +151,15 @@ if args.cuda:
     criterion = criterion.cuda()
 ###
 
-print("model loading")
-print(torch.cuda.memory_allocated())
-print(torch.cuda.max_memory_allocated())
-
 params = list(model.parameters()) + list(criterion.parameters())
 total_params = sum(x.size()[0] * x.size()[1] if len(x.size()) > 1 else x.size()[0] for x in params if x.size())
 print('Args:', args)
 print('Model total parameters:', total_params)
+
+###############################################################################
+# Setup writer
+###############################################################################
+
 
 ###############################################################################
 # Training code
@@ -180,17 +182,17 @@ def evaluate(data_source, batch_size=10):
 
 def train():
     # Turn on training mode which enables dropout.
+    print(f'starting training for epoch {epoch}')
     if args.model == 'QRNN': model.reset()
+    global STEP
     total_loss = 0
     start_time = time.time()
     ntokens = len(corpus.dictionary)
     hidden = model.init_hidden(args.batch_size)
     batch = 0
     for tr_data_shard in corpus.iterate_train_shards():
+        print('opening new data shard!')
         train_data = batchify(tr_data_shard, args.batch_size, args)
-        print("data loading")
-        print(torch.cuda.memory_allocated())
-        print(torch.cuda.max_memory_allocated())
         i = 0
         while i < train_data.size(0) - 1 - 1:
             bptt = args.bptt if np.random.random() < 0.95 else args.bptt / 2.
@@ -218,6 +220,8 @@ def train():
             # Temporal Activation Regularization (slowness)
             if args.beta: loss = loss + sum(args.beta * (rnn_h[1:] - rnn_h[:-1]).pow(2).mean() for rnn_h in rnn_hs[-1:])
             loss.backward()
+            STEP += 1
+            writer.add_scalar('Loss/train-batch', raw_loss.data, STEP)
 
             # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
             if args.clip: torch.nn.utils.clip_grad_norm_(params, args.clip)
@@ -232,6 +236,8 @@ def train():
                         'loss {:5.2f} | ppl {:8.2f} | bpc {:8.3f}'.format(
                     epoch, batch, len(train_data) // args.bptt, optimizer.param_groups[0]['lr'],
                     elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss), cur_loss / math.log(2)))
+                writer.add_scalar('Loss/train', cur_loss, STEP)
+                writer.add_scalar('BPC/train', curr_loss / math.log(2), STEP)
                 total_loss = 0
                 start_time = time.time()
             ###
@@ -245,6 +251,10 @@ stored_loss = 100000000
 
 # At any point you can hit Ctrl + C to break out of training early.
 try:
+
+    STEP = 0
+    writer = SummaryWriter(f'{args.output_dir}/summary')
+
     optimizer = None
     # Ensure the optimizer is optimizing params, which includes both the model's weights as well as the criterion's weight (i.e. Adaptive Softmax)
     if args.optimizer == 'sgd':
@@ -266,6 +276,8 @@ try:
                 'valid ppl {:8.2f} | valid bpc {:8.3f}'.format(
                     epoch, (time.time() - epoch_start_time), val_loss2, math.exp(val_loss2), val_loss2 / math.log(2)))
             print('-' * 89)
+            writer.add_scalar('Loss/dev', val_loss2, STEP)
+            writer.add_scalar('BPC/dev', val_loss2 / math.log(2), STEP)
 
             if val_loss2 < stored_loss:
                 model_save(args.save)
@@ -282,6 +294,8 @@ try:
                 'valid ppl {:8.2f} | valid bpc {:8.3f}'.format(
               epoch, (time.time() - epoch_start_time), val_loss, math.exp(val_loss), val_loss / math.log(2)))
             print('-' * 89)
+            writer.add_scalar('Loss/dev', val_loss, STEP)
+            writer.add_scalar('BPC/dev', val_loss / math.log(2), STEP)
 
             if val_loss < stored_loss:
                 model_save(args.save)
@@ -308,8 +322,8 @@ except KeyboardInterrupt:
 model_load(args.save)
 
 # Run on test data.
-test_loss = evaluate(test_data, test_batch_size)
-print('=' * 89)
-print('| End of training | test loss {:5.2f} | test ppl {:8.2f} | test bpc {:8.3f}'.format(
-    test_loss, math.exp(test_loss), test_loss / math.log(2)))
-print('=' * 89)
+# test_loss = evaluate(test_data, test_batch_size)
+# print('=' * 89)
+# print('| End of training | test loss {:5.2f} | test ppl {:8.2f} | test bpc {:8.3f}'.format(
+#     test_loss, math.exp(test_loss), test_loss / math.log(2)))
+# print('=' * 89)

@@ -67,7 +67,7 @@ for sent in load_sentences(args.sentences_file, corpus):
     model_outs = model(data, hidden, return_h=True)
     result, hidden, raw_outputs, outputs = model_outs
     sent_outputs = raw_outputs[args.nlayers - 1]
-    sent_outputs = sent_outputs.cpu().squeeze().detach().numpy()
+    sent_outputs = sent_outputs.cpu().squeeze(dim=1).detach().numpy()
     all_vectors.append(sent_outputs)
 
 print(f"Extracted features for {len(all_vectors)} sentences.")
